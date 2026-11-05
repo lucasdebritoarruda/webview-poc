@@ -1,0 +1,4 @@
+# Copie para ".npmrc" e preencha com o registro interno do Sicredi.
+# Peça o endereço e o token ao time do Colmeia / time web.
+@design-system:registry=https://SEU-REGISTRO-INTERNO/
+//SEU-REGISTRO-INTERNO/:_authToken=${NPM_TOKEN}
