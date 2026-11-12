@@ -7,15 +7,17 @@
  *
  * Nativo -> web:
  *   O app chama window.colmeiaReceive({ type, payload })
- *   e a página dispara o evento "colmeia:native".
+ *   e a página recebe a mensagem pelos ouvintes de onNativeMessage().
  */
 
 export interface BridgeMessage {
-  type: string;
   payload?: unknown;
+  type: string;
 }
 
 export type Channel = "ios" | "android" | "browser";
+
+type NativeListener = (message: BridgeMessage) => void;
 
 interface IosMessageHandler {
   postMessage: (message: unknown) => void;
@@ -27,13 +29,13 @@ interface AndroidBridge {
 
 declare global {
   interface Window {
-    webkit?: { messageHandlers?: Partial<Record<string, IosMessageHandler>> };
     ColmeiaAndroid?: AndroidBridge;
-    colmeiaReceive?: (message: BridgeMessage) => void;
+    colmeiaReceive?: (message: unknown) => void;
+    webkit?: { messageHandlers?: Partial<Record<string, IosMessageHandler>> };
   }
 }
 
-export const NATIVE_EVENT = "colmeia:native";
+const listeners = new Set<NativeListener>();
 
 function iosHandler(): IosMessageHandler | undefined {
   return window.webkit?.messageHandlers?.colmeia;
@@ -60,11 +62,10 @@ export function sendToNative(message: BridgeMessage): Channel {
     android.postMessage(JSON.stringify(message));
     return "android";
   }
-  console.info("[bridge] sem app nativo, mensagem:", message);
   return "browser";
 }
 
-export function isBridgeMessage(value: unknown): value is BridgeMessage {
+function isBridgeMessage(value: unknown): value is BridgeMessage {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -73,8 +74,21 @@ export function isBridgeMessage(value: unknown): value is BridgeMessage {
   );
 }
 
+/** Registra um ouvinte para as mensagens do app. Retorna a função que o remove. */
+export function onNativeMessage(listener: NativeListener): () => void {
+  listeners.add(listener);
+  return (): void => {
+    listeners.delete(listener);
+  };
+}
+
 export function installNativeReceiver(): void {
-  window.colmeiaReceive = (message: BridgeMessage): void => {
-    window.dispatchEvent(new CustomEvent(NATIVE_EVENT, { detail: message }));
+  window.colmeiaReceive = (message: unknown): void => {
+    if (!isBridgeMessage(message)) {
+      return;
+    }
+    listeners.forEach((listener): void => {
+      listener(message);
+    });
   };
 }

@@ -5,7 +5,12 @@ import { bridgeChannel } from "#/utils/bridge";
  * Coleta, em tempo real, as informações do ambiente que mais impactam um
  * design system rodando dentro de WebView.
  */
-export type Diagnostics = Record<string, string>;
+export interface DiagnosticItem {
+  label: string;
+  value: string;
+}
+
+export type Diagnostics = readonly DiagnosticItem[];
 
 const KEYBOARD_THRESHOLD_PX = 120;
 const BRAND_TOKEN = "--action-primary-bg-color";
@@ -38,35 +43,44 @@ function size(width: number, height: number): string {
 }
 
 function collect(probe: HTMLElement | null): Diagnostics {
-  const userAgent = navigator.userAgent;
+  const { userAgent } = navigator;
   const visual = window.visualViewport;
   const rootFont = getComputedStyle(document.documentElement).fontSize;
   const token = getComputedStyle(document.body).getPropertyValue(BRAND_TOKEN).trim();
   const keyboardOpen =
     visual !== null && window.innerHeight - visual.height > KEYBOARD_THRESHOLD_PX;
 
-  return {
-    Ambiente: detectHost(userAgent),
-    "Bridge nativa": bridgeChannel(),
-    "Tema (data-theme)": document.body.getAttribute("data-theme") ?? "-",
-    [`Token ${BRAND_TOKEN}`]: token === "" ? "NÃO CARREGADO" : token,
-    "Viewport (layout)": size(window.innerWidth, window.innerHeight),
-    "Viewport visível": visual === null ? "sem suporte" : size(visual.width, visual.height),
-    "Teclado aberto?": keyboardOpen ? "provavelmente sim" : "não",
-    "Safe area": readSafeArea(probe),
-    "Device pixel ratio": String(window.devicePixelRatio),
-    "Fonte raiz (zoom de texto)": rootFont,
-    "Esquema do sistema": matchMedia("(prefers-color-scheme: dark)").matches ? "escuro" : "claro",
-    "Reduzir movimento": matchMedia("(prefers-reduced-motion: reduce)").matches ? "sim" : "não",
-    "Toque (maxTouchPoints)": String(navigator.maxTouchPoints),
-    "Suporta 100dvh": CSS.supports("height", "100dvh") ? "sim" : "não",
-    "Suporta :has()": CSS.supports("selector(:has(*))") ? "sim" : "não",
-    "User agent": userAgent,
-  };
+  return [
+    { label: "Ambiente", value: detectHost(userAgent) },
+    { label: "Bridge nativa", value: bridgeChannel() },
+    { label: "Tema (data-theme)", value: document.body.getAttribute("data-theme") ?? "-" },
+    { label: `Token ${BRAND_TOKEN}`, value: token === "" ? "NÃO CARREGADO" : token },
+    { label: "Viewport (layout)", value: size(window.innerWidth, window.innerHeight) },
+    {
+      label: "Viewport visível",
+      value: visual === null ? "sem suporte" : size(visual.width, visual.height),
+    },
+    { label: "Teclado aberto?", value: keyboardOpen ? "provavelmente sim" : "não" },
+    { label: "Safe area", value: readSafeArea(probe) },
+    { label: "Device pixel ratio", value: String(window.devicePixelRatio) },
+    { label: "Fonte raiz (zoom de texto)", value: rootFont },
+    {
+      label: "Esquema do sistema",
+      value: matchMedia("(prefers-color-scheme: dark)").matches ? "escuro" : "claro",
+    },
+    {
+      label: "Reduzir movimento",
+      value: matchMedia("(prefers-reduced-motion: reduce)").matches ? "sim" : "não",
+    },
+    { label: "Toque (maxTouchPoints)", value: String(navigator.maxTouchPoints) },
+    { label: "Suporta 100dvh", value: CSS.supports("height", "100dvh") ? "sim" : "não" },
+    { label: "Suporta :has()", value: CSS.supports("selector(:has(*))") ? "sim" : "não" },
+    { label: "User agent", value: userAgent },
+  ];
 }
 
 export function useDiagnostics(probe: HTMLElement | null): Diagnostics {
-  const [data, setData] = useState<Diagnostics>({});
+  const [data, setData] = useState<Diagnostics>([]);
 
   useEffect((): (() => void) => {
     const update = (): void => {

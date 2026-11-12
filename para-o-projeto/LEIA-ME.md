@@ -32,3 +32,9 @@ Depois:
 - Alert e Flag com `CDSAlertHeading`/`CDSAlertDescription` e `CDSFlagHeading`/`CDSFlagDescription`.
 - Estilos só com classes Tailwind (sem `webview.css`).
 - A ponte nativa (`bridge.ts`) declara os tipos do `window` em vez de forçar com `as`.
+
+### Rodada 2 do lint
+- Diagnóstico virou uma lista de `{ label, value }` (nomes com espaço não podem ser chaves de objeto).
+- Mensagens do app chegam por `onNativeMessage()` em vez de `CustomEvent` (evita valor `any`).
+- `bridge.ts`: membros das interfaces em ordem alfabética, opcionais primeiro; sem `console.info`.
+- `"aria-label"` do botão voltar tem um `eslint-disable-next-line` só para a regra de nomes, porque é nome de atributo HTML.

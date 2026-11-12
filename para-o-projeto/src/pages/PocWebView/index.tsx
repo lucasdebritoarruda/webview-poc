@@ -55,12 +55,7 @@ import {
 
 import { useDiagnostics } from "#/hooks/useDiagnostics";
 import { applyLightTheme } from "#/utils/theme";
-import {
-  NATIVE_EVENT,
-  installNativeReceiver,
-  isBridgeMessage,
-  sendToNative,
-} from "#/utils/bridge";
+import { installNativeReceiver, onNativeMessage, sendToNative } from "#/utils/bridge";
 
 /*
  * Jornada em 3 etapas, igual ao canvas "POC Colmeia em WebView":
@@ -79,7 +74,7 @@ const TOAST_LONG_MS = 4000;
 const MAX_LOG_LINES = 40;
 const SIMULATED_VALUE = 1234.56;
 
-const CONTACT_OPTIONS: readonly { value: string; label: string }[] = [
+const CONTACT_OPTIONS: readonly { label: string; value: string }[] = [
   { value: "whatsapp", label: "WhatsApp" },
   { value: "email", label: "E-mail" },
   { value: "telefone", label: "Telefone" },
@@ -172,21 +167,13 @@ export default function PocWebView(): ReactElement {
     installNativeReceiver();
   }, []);
 
-  useEffect((): (() => void) => {
-    const handleNativeMessage = (nativeEvent: Event): void => {
-      if (!(nativeEvent instanceof CustomEvent)) {
-        return;
-      }
-      const detail: unknown = nativeEvent.detail;
-      if (isBridgeMessage(detail)) {
-        addLog(`nativo: ${detail.type}`, detail.payload);
-      }
-    };
-    window.addEventListener(NATIVE_EVENT, handleNativeMessage);
-    return (): void => {
-      window.removeEventListener(NATIVE_EVENT, handleNativeMessage);
-    };
-  }, [addLog]);
+  useEffect(
+    (): (() => void) =>
+      onNativeMessage((message): void => {
+        addLog(`nativo: ${message.type}`, message.payload);
+      }),
+    [addLog],
+  );
 
   // Cada etapa começa do topo (como uma tela nova)
   useEffect((): void => {
@@ -217,7 +204,11 @@ export default function PocWebView(): ReactElement {
   };
 
   // Props do botão voltar do cabeçalho (o lint exige nome iniciado por "handle")
-  const handleBackButtonProps = { "aria-label": "Voltar", onClick: handleBack };
+  const handleBackButtonProps = {
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- nome de atributo HTML
+    "aria-label": "Voltar",
+    onClick: handleBack,
+  };
 
   const handlePrimary = (): void => {
     if (step === "start") {
@@ -255,9 +246,7 @@ export default function PocWebView(): ReactElement {
 
   // ---------------- Diagnóstico ----------------
   const copyDiagnostics = async (): Promise<void> => {
-    const text = Object.entries(diagnostics)
-      .map(([key, val]): string => `${key}: ${val}`)
-      .join("\n");
+    const text = diagnostics.map((item): string => `${item.label}: ${item.value}`).join("\n");
     try {
       await navigator.clipboard.writeText(text);
       CdsToastBasicImpl.positive("Diagnóstico copiado.", TOAST_SHORT_MS);
@@ -331,13 +320,13 @@ export default function PocWebView(): ReactElement {
             <CDSHeading as="h2" size="sm">Diagnóstico do ambiente</CDSHeading>
             <table className="w-full border-collapse font-mono text-[13px] text-[color:var(--text-paragraph-color)]">
               <tbody>
-                {Object.entries(diagnostics).map(([key, val]): ReactElement => (
+                {diagnostics.map((item): ReactElement => (
                   <tr
-                    key={key}
+                    key={item.label}
                     className="block py-2 border-b border-[color:var(--elements-border-subtle-color)]"
                   >
-                    <td className="block opacity-70 text-xs mb-0.5">{key}</td>
-                    <td className="block [overflow-wrap:anywhere]">{val}</td>
+                    <td className="block opacity-70 text-xs mb-0.5">{item.label}</td>
+                    <td className="block [overflow-wrap:anywhere]">{item.value}</td>
                   </tr>
                 ))}
               </tbody>
